@@ -1,3 +1,14 @@
+# DV8dotpy
+DV8dotpy helps you identify deviations in HTTP responses.  It has a whole plethora of applications.  It can be used to bruteforce directories, files, valid cfedentials and so on.  You specify what a deviation looks like and it will tell you if any deviations are found in the responses.  It uses multithreading so can be pretty quick.
+
+For example; you're trying to brute force credentials on a companies federated Office 365 portal.  You know that an invalid logon response doesn't set any cookies, but a successful logon does. Use the "cookie" deviator and DV8dotpy will let you know which of your payloads resulted in a successful logon.  You could also use the content length ("clength") deviator in this example because the content length of a successful logon is sufficiently different from the content length of an invalid logon.  Using "clength", DV8dotpy is clever enough to work out what the norm is and identifies any responses that deviate form it.  
+
+Or another example; you're trying to brute force a file on a web server.  You know that an invalid filename results in a 404 but a valid filename results in a 200.  Use the "code" deviator with -c 404 and DV8dotpy will look for any responses that deviate from it.
+
+There are 4 modes available: revolver, shotgun, trident and nuke.  Each one handles the payloads and payload positions slightly differently.  See "Modes" below for a description.
+
+It is by no means perfect.  I still have quite a bit of testing to do.  And I also need to refactor everything and implement classes.  But hopefully it still comes in useful for some people.  If you have any feature requests or any suggestions then let me know.
+
 # Author
 
 Ben Millar
@@ -40,18 +51,19 @@ This is the same format that SQLmap and other tools use.
 
 # Specifying Payload Positions
 You can use two section characters (§value§) to specify a payload position.  Any value between two § characters will become a payload position.  The § characters will be removed and the payload inserted in their place. Take for example, this post data of a request:
-
+```
 username=§user1%40acmecorp.net§&password=§Password123§&AuthMethod=password
-
+```
 Here we have specified 2 payload positions.  Depending on the mode specified, this may become the following after processing:
 
 (Trident Mode)
+```
 Request1: username=user1%40acmecorp.net&password=Password123&AuthMethod=password
 Request2: username=user2%40acmecorp.net&password=Password321&AuthMethod=password
 Request3: username=user3%40acmecorp.net&password=Welcome123&AuthMethod=password
 Request4: username=user4%40acmecorp.net&password=Letmein123&AuthMethod=password
 Request5: username=user5%40acmecorp.net&password=Monday1&AuthMethod=password
-
+```
 
 # Usage
 
