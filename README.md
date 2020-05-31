@@ -16,7 +16,7 @@ Ben Millar
 
 # Installation
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 # Change Log
@@ -119,7 +119,7 @@ optional arguments:
 # Example
 
 ```
-$ python3 -m shotgun -f request_o365.txt -p user-list.txt passwords.txt -d code -c 200 -x http://127.0.0.1:8080 -k
+$ python3 -m nuke -f request_o365.txt -p user-list.txt passwords.txt -d code -c 200 -x http://127.0.0.1:8080 -k
 
 ██████╗░██╗░░░██╗░█████╗░██████╗░░█████╗░████████╗██████╗░██╗░░░██╗
 ██╔══██╗██║░░░██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗╚██╗░██╔╝
@@ -158,7 +158,7 @@ Position: 2, Payload: Password1234
 
 # To-Do List
 
-* Stop bening lazy - Implement classes! Get rid of global vars!
+* Stop being lazy - Implement classes! Get rid of global vars!
 * Add grep deviator - i.e. grep response for keyword/phrase
 * Error checking!  Be better! 
 * Check inside referer header for payload position.  Just another urllib.parse.... 
