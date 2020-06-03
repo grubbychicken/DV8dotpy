@@ -38,6 +38,7 @@ multi_payload=False
 ppositions=0
 out_path=""
 http_ver=""
+extensions=[]
 
 def main():
     file_path = ""
@@ -46,16 +47,17 @@ def main():
     parser.add_argument('-f', help='Supply the path to the HTTP request.',required=True, metavar='<Path to Request file>', type=str)
     parser.add_argument('-p', help='Supply the path to a list of payloads (One per-line). Multiple files can be provided for the following modes: trident(5), nuke',required=True, metavar='<Path to Payload file>', type=str, nargs='*')
     parser.add_argument('-v', help='Be verbose, i.e. Display response length and response code for each request.', action='store_true')
-    parser.add_argument('-t', help='Set number of threads, 1-20. (Default=5)', metavar='<Threads>', type=int, choices=range(1, 20))
+    parser.add_argument('-t', help='Set number of threads, 1-50. (Default=5)', metavar='<Threads>', type=int, choices=range(1, 51))
     parser.add_argument('-r', help='Follow redirects. (Default=False)', action='store_true')
     parser.add_argument('-q', help='Set request timeout in seconds, 1-60. (Default=10)', metavar='<Timeout>', type=int, choices=range(1, 60))
     parser.add_argument('-k', help='Insecure mode i.e. check certificate validity. (Default=True)', action='store_true')
     parser.add_argument('-x', help='Proxy (scheme://ipaddress:port)', metavar='<Proxy>', type=str)
     parser.add_argument('-d', help='Response attribute to analyse for deviation.(Options: code,cookie,clength,all)', required=True, metavar='<Deviator>', type=str, choices=["code","cookie","clength","all"])
-    parser.add_argument('-c', help='Set expected status code. Any responses with different codes will be treated as deviations.', metavar='<HTTP Status Code>', type=int, choices=(200,403,302,300,400,401,404))
+    parser.add_argument('-c', help='Set expected status code. Any responses with different codes will be treated as deviations.', metavar='<HTTP Status Code>', type=int, choices=(200,403,302,300,400,401,403,404))
     parser.add_argument('-m', help='Attack Mode i.e. how and where to inject payloads. (Options: revolver,shotgun,trident,nuke)', required=True, metavar='<Attack Mode>', type=str, choices=["revolver","shotgun","trident","nuke"])
     parser.add_argument('-S', help='Set Content Length analysis sensitivity, from 1-30 (Lower number = more sensitive, [more false positives]. Vice versa.). (Default=25)', metavar='<Sensitivity>', type=int, choices=range(1, 31))
     parser.add_argument('-o', help='Supply the path to store the requests that produced deviated responses. Format: payload.deviator or position_payload.deviator if multiple payload positions specified.', metavar='<Path to Dir>', type=str)
+    parser.add_argument('-a', help='Supply any string(s) you wish to append to the payload i.e. ".txt", ".php", "/".  You can supply more than one.', metavar='<String to append>', type=str, nargs='*')
     args = parser.parse_args()
     if args.m  != "revolver" and args.m != "shotgun" and args.m != "trident" and args.m != "nuke":
     	print('Sorry, {} mode not recognized, please check...'.format(args.m))
@@ -110,6 +112,10 @@ def main():
     if args.c:
     	global code
     	code=args.c
+    	analyse = args.d
+    if args.a:
+    	global extensions
+    	extensions.append(args.a)
     return file_path,payload_path,mode
 
 def file_exist(file_path):
@@ -146,6 +152,11 @@ def read_file(file_path):
 
 def check_request_qstring(qstring):
 	counter=0
+	url = urllib.parse.urlparse(qstring)
+	url_dirs = str(url.path).split("/")
+	for url_dir in url_dirs:
+		if pattern.match(url_dir):
+			counter+=1
 	parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(qstring).query)
 	for value in parsed_qs.values():
 		if pattern.match(value[0]):
@@ -196,6 +207,13 @@ def append_request_items(payload,url,headers,postdata):
 def inject_payload_qstring(og_qstring,payload):
 	qstring = copy.deepcopy(og_qstring)
 	url_parts = list(urllib.parse.urlparse(qstring))
+	if "§" in url_parts[2]:
+		path = re.split('/',url_parts[2])
+		for n, i in enumerate(path):
+			if pattern.search(i):
+				path[n] = payload
+				url_parts[2] = "/".join(path)
+				url=urllib.parse.urlunparse(url_parts)
 	query = dict(urllib.parse.parse_qsl(url_parts[4]))
 	for key,value in query.items():
 		if pattern.match(value):
@@ -237,15 +255,25 @@ def inject_payload_qstring_revolver(og_qstring,headers,postdata,payload,position
 	payload_dict={}
 	qstring = copy.deepcopy(og_qstring)
 	url_parts = list(urllib.parse.urlparse(qstring))
-	query = dict(urllib.parse.parse_qsl(url_parts[4]))
-	for key,value in query.items():
-		if pattern.match(value):
-			if int(counter) == int(position):
-				params = {key:payload}
-				query.update(params)
-				url_parts[4] = urllib.parse.urlencode(query)
-				url=urllib.parse.urlunparse(url_parts)
-			counter+=1
+	if "§" in url_parts[2]:
+		path = re.split('/',url_parts[2])
+		for n, i in enumerate(path):
+			if pattern.search(i):
+				if int(counter) == int(position):
+					path[n] = payload
+					url_parts[2] = "/".join(path)
+					url=urllib.parse.urlunparse(url_parts)
+				counter+=1
+	if url_parts[4]!=0:
+		query = dict(urllib.parse.parse_qsl(url_parts[4]))
+		for key,value in query.items():
+			if pattern.match(value):
+				if int(counter) == int(position):
+					params = {key:payload}
+					query.update(params)
+					url_parts[4] = urllib.parse.urlencode(query)
+					url=urllib.parse.urlunparse(url_parts)
+				counter+=1
 	#§
 	global req_dict
 	payload_dict[payload]={"url":url}
@@ -292,6 +320,16 @@ def inject_payload_body_revolver(url,headers,og_post_data,payload,position,count
 def inject_payload_qstring_trident_nuke_single(og_qstring,payloads,p_key,position):
 	qstring = copy.deepcopy(og_qstring)
 	url_parts = list(urllib.parse.urlparse(qstring))
+
+	if "§" in url_parts[2]:
+		path = re.split('/',url_parts[2])
+		for n, i in enumerate(path):
+			if pattern.search(i):
+				if int(counter) == int(position):
+					path[n] = payload
+					url_parts[2] = "/".join(path)
+					url=urllib.parse.urlunparse(url_parts)
+
 	query = dict(urllib.parse.parse_qsl(url_parts[4]))
 	for key,value in query.items():
 		if pattern.match(value):
@@ -307,8 +345,6 @@ def inject_payload_qstring_trident_nuke_single(og_qstring,payloads,p_key,positio
 		req_dict[p_key].append({"url":url})
 
 def inject_payload_headers_trident_nuke_single(og_headers,payloads,p_key,position):
-	#print(position)
-	#sys.exit()
 	headers = copy.deepcopy(og_headers)
 	for key,value in headers.items():
 		if pattern.match(value):
@@ -338,6 +374,18 @@ def inject_payload_qstring_trident_nuke(og_qstring,headers,postdata,p_key,payloa
 	payload_dict={}
 	qstring = copy.deepcopy(og_qstring)
 	url_parts = list(urllib.parse.urlparse(qstring))
+
+	if "§" in url_parts[2]:
+		path = re.split('/',url_parts[2])
+		for n, i in enumerate(path):
+			if pattern.search(i):
+				if int(counter) == int(position):
+					path[n] = payloads[position-1]
+					url_parts[2] = "/".join(path)
+					url=urllib.parse.urlunparse(url_parts)
+					position+=1
+				counter+=1
+
 	query = dict(urllib.parse.parse_qsl(url_parts[4]))
 	for key,value in query.items():
 		if pattern.match(value):
@@ -417,23 +465,26 @@ def print_settings(mode):
 	print("CLength Sensitivity: ",sensitivity)
 	print("===============================================================================")
 
-def test_https(fqdn,url_path):
+def test_https(fqdn,raw_url_path):
+	url_path = strip_positional_indicators(raw_url_path)
+	url_s = "https://"+fqdn
+	url = "http://"+fqdn
 	try:
-		url_s = "https://"+fqdn+url_path
-		url = "http://"+fqdn+url_path
-		if requests.get(url_s, timeout=5).status_code == requests.codes.ok:
+		r = requests.get(url_s, timeout=5)
+		if r.status_code:
 			protocol = "https://"
 			if proxy:
 				proxies["https"]=proxy
 			return protocol
-		elif requests.get(url, timeout=5).status_code == requests.codes.ok:
+	except:
+		pass
+	try:
+		r = requests.get(url, timeout=5)
+		if r.status_code:
 			protocol = "http://"
 			if proxy:
 				proxies["http"]=proxy
 			return protocol
-		else:
-			print("Sorry, cannot determine whether HTTP or HTTPS.  Please verify request file.")
-			sys.exit()
 	except requests.exceptions.RequestException:
 		print("Can't conact site.  Check network connection or retry later.")
 		raise SystemExit(0)
@@ -470,7 +521,8 @@ def handle_response(response,payload1):
 	if multi_payload:
 		payload = payload1[1:]
 		position = payload1[0]
-	if response:
+	codes=[100,101,102,200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,305,307,308,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,421,422,423,424,426,428,429,431,444,451,499,500,501,502,503,504,505,506,507,508,510,511,599]
+	if response.status_code in codes:
 		clength = int(len(str(response.text))+len(str(response.headers)))
 		if redir:
 			if response.history:
@@ -511,13 +563,9 @@ def handle_response(response,payload1):
 				analyse_cookies(response,payload1,None)
 				analyse_code(response,payload1,None)
 				analyse_clength(payload1,clength,None)
-
-	elif response.status_code == 500:
-		if verbose==1:
-			print("\r\nError! Received HTTP 500.")
 	else:
 		if verbose==1:
-			print("\r\nNo response received!")
+			print("Unknown response status code received!")
 
 def analyse_cookies(response,payload,position):
 	if response.cookies:
@@ -712,7 +760,6 @@ def handle_revolver(payloads,post_data,url,headers):
 		print("Sorry, too many payload positions found in request file. Max is 9.  Please check again...")
 		sys.exit()
 	ppositions = sum_injection_points
-	#if sum_injection_points > 1:
 	multi_payload=True
 	if revolver_qstring > 0:
 		for payload in payloads:
@@ -853,20 +900,18 @@ def get_payloads_from_file(payload_path):
 	with open(payload_path, "r+") as file_object:
 		payloads = file_object.readlines()
 		for payload in payloads:
+			if extensions:
+				for extension in extensions[0]:
+					payload_dict.append(payload.strip()+extension)
 			payload_dict.append(payload.strip())
 		return payload_dict	
 
-def strip_positional_indicators_url(url):
-	url_parts = list(urllib.parse.urlparse(url))
-	query = dict(urllib.parse.parse_qsl(url_parts[4]))
-	for key,value in query.items():
-		if '§' in value:
-			payload = value.replace('§','')
-			params = {key:payload}
-			query.update(params)
-			url_parts[4] = urllib.parse.urlencode(query)
-			url=urllib.parse.urlunparse(url_parts)
-	return url
+def strip_positional_indicators(raw_url):
+	if '§' in raw_url:
+		url = raw_url.replace('§','')
+		return url
+	else:
+		return raw_url
 
 def strip_positional_indicators_headers(headers):
 	for key,value in headers.items():
@@ -888,28 +933,28 @@ def print_results():
 	if success > 0:
 		print("===============================================================================")
 		if success==1:
-			print("Woohoo! "+str(success)+" deviation found!")
+			print("Woohoo! 1 deviation found!")
 		else:
-			print("Woohoo! "+str(success)+" deviations found!")
+			print("Woohoo! {} deviations found!".format(success))
 		print(f'Time taken: {time() - start}')
 		print("===============================================================================")
 		part = "§*§"
 		for key, values in deviators.items():
 			print('########## {} Deviations ##########'.format(key))
 			for deviator in values:
-				if multi_payload:
-					payload = deviator[1:]
-					position = deviator[0]
-					print("\033[38;5;208mPosition: {}, Payload: {}\033[0m".format(position,payload))
-				elif part in deviator:
-					deviator_list = deviator.split(part)
-					i=1
-					for single_deviator in deviator_list:
-						print("\033[38;5;208mPosition: {}, Payload: {}\033[0m".format(i,single_deviator))
-						i+=1
-					print("###")	
-				else:
-					print(str("\033[38;5;208m{}\033[0m".format(deviator)))
+					if multi_payload:
+						payload = deviator[1:]
+						position = deviator[0]
+						print("\033[38;5;208mPosition: {}, Payload: {}\033[0m".format(position,payload))
+					elif part in deviator:
+						deviator_list = deviator.split(part)
+						i=1
+						for single_deviator in deviator_list:
+							print("\033[38;5;208mPosition: {}, Payload: {}\033[0m".format(i,single_deviator))
+							i+=1
+						print("###")	
+					else:
+						print(str("\033[38;5;208m{}\033[0m".format(deviator)))
 		print("===============================================================================\r\n")
 	else:
 		print("\r\n===============================================================================")
@@ -950,11 +995,12 @@ if __name__ == "__main__":
 								payload = str(pl_position)+payload_key
 							for request_data in request.values():
 								badurl = request_data['url']
+								url=strip_positional_indicators(badurl)
 								badheaders = request_data['headers']
-								badpost_data = request_data['postdata']
-								url=strip_positional_indicators_url(badurl)
 								headers=strip_positional_indicators_headers(badheaders)
-								post_data=strip_positional_indicators_post_data(badpost_data)
+								if 'postdata' in request_data:
+									badpost_data = request_data['postdata']
+									post_data=strip_positional_indicators_post_data(badpost_data)
 								processes.update({payload:executor.submit(send_request,url,headers,post_data,req_type)})
 				for payload, task in processes.items():
 					as_completed(task)
@@ -980,7 +1026,8 @@ if __name__ == "__main__":
 				for payload,request_data in req_dict.items():
 					url = request_data[0]['url']
 					headers = request_data[1]['headers']
-					post_data = request_data[2]['postdata']
+					if len(request_data) > 2:
+						post_data = request_data[2]['postdata']
 					processes.update({payload:executor.submit(send_request,url,headers,post_data,req_type)})
 				for payload, task in processes.items():
 					as_completed(task)
@@ -1020,7 +1067,8 @@ if __name__ == "__main__":
 				for payload,request_data in req_dict.items():
 					url = request_data[0]['url']
 					headers = request_data[1]['headers']
-					post_data = request_data[2]['postdata']
+					if len(request_data) > 2:
+						post_data = request_data[2]['postdata']
 					processes.update({payload:executor.submit(send_request,url,headers,post_data,req_type)})
 				for payload, task in processes.items():
 					as_completed(task)
@@ -1060,7 +1108,8 @@ if __name__ == "__main__":
 				for payload,request_data in req_dict.items():
 					url = request_data[0]['url']
 					headers = request_data[1]['headers']
-					post_data = request_data[2]['postdata']
+					if len(request_data) > 2:
+						post_data = request_data[2]['postdata']
 					processes.update({payload:executor.submit(send_request,url,headers,post_data,req_type)})
 				for payload, task in processes.items():
 					as_completed(task)
@@ -1070,10 +1119,13 @@ if __name__ == "__main__":
 					printProgressBar(i, array_len, prefix = 'Progress:', suffix = 'Complete |', length = 50)
 			print_results()
 
-# TO DO:
-# Stop bening lazy - Implement classes! Get rid of global vars!
+# Known BUGS:
 #
-# Create readme for github, git commit etc.
+#
+#
+# TO DO:
+# 
+# Stop bening lazy - Implement classes! Get rid of global vars!
 # 
 # Add grep deviator - i.e. grep response for keyword/phrase?
 #
@@ -1081,7 +1133,6 @@ if __name__ == "__main__":
 # 
 # check inside referer header for payload position.  Just another urllib.parse....
 # 
-# add "append extension" and "append slash" feature for file brute-forcing
 # 
 #
 # Could do with more testing.

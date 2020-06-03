@@ -7,7 +7,18 @@ Or another example; you're trying to brute force a file on a web server.  You kn
 
 There are 4 modes available: revolver, shotgun, trident and nuke.  Each one handles the payloads and payload positions slightly differently.  See "Modes" below for a description.
 
-It is by no means perfect.  I still have quite a bit of testing to do.  And I also need to refactor everything and implement classes.  But hopefully it still comes in useful for some people.  If you have any feature requests or any suggestions then let me know.
+It is by no means perfect and is still BETA.  I still have quite a bit of testing to do.  And I also need to refactor everything and implement classes.  But hopefully it still comes in useful for some people.  If you have any feature requests or any suggestions then let me know.  Also, feel free to raise issues on GitHub.
+
+# Example Use Cases
+**Red Team Engagements**
+Credential Stuffing - You have created a list of username/password pairs from password leaks/breaches for the company you're testing.  You can use trident mode against any of their public facing services that allow you to authenticate, such as OWA or Office365.  
+
+Password Brute Forcing - You have enumerated a list of email addresses from LinkedIn or other open sources.  You want to attempt to log in to a public facing service such as OWA or Office365 using each email address and a list of x passwords.  Use nuke mode.
+
+**Web App Pentest**
+In a scenario where you have to update multiple request values with the same payload in the same request, such as a username in an email address feild and a cookie - use shotgun mode.
+
+In a scenario where you want to enumerate a list of valid user IDs or usernames for example, use revolver mode to place a payload in one or more positions on after the other.
 
 # Author
 
@@ -82,6 +93,7 @@ usage: DV8.py [-h] [--version] -f <Path to Request file> -p
               [-t <Threads>] [-r] [-q <Timeout>] [-k] [-x <Proxy>] -d
               <Deviator> [-c <HTTP Status Code>] -m <Attack Mode>
               [-S <Sensitivity>] [-o <Path to Dir>]
+              [-a [<String to append> [<String to append> ...]]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -94,7 +106,7 @@ optional arguments:
                         modes: trident(5), nuke
   -v                    Be verbose, i.e. Display response length and response
                         code for each request.
-  -t <Threads>          Set number of threads, 1-20. (Default=5)
+  -t <Threads>          Set number of threads, 1-50. (Default=5)
   -r                    Follow redirects. (Default=False)
   -q <Timeout>          Set request timeout in seconds, 1-60. (Default=10)
   -k                    Insecure mode i.e. check certificate validity.
@@ -114,12 +126,16 @@ optional arguments:
                         deviated responses. Format: payload.deviator or
                         position_payload.deviator if multiple payload
                         positions specified.
+  -a [<String to append> [<String to append> ...]]
+                        Supply any string(s) you wish to append to the payload
+                        i.e. ".txt", ".php", "/". You can supply more than
+                        one.
 ```
 
 # Example
 
 ```
-$ python3 -m nuke -f request_o365.txt -p user-list.txt passwords.txt -d code -c 200 -x http://127.0.0.1:8080 -k
+python3 DV8.py -m shotgun -f magic.req -p test_dirs -d all -c 404 -S 1 -x http://127.0.0.1:8080 -k -a .txt .php /
 
 ██████╗░██╗░░░██╗░█████╗░██████╗░░█████╗░████████╗██████╗░██╗░░░██╗
 ██╔══██╗██║░░░██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗╚██╗░██╔╝
@@ -132,35 +148,52 @@ Helping you identify deviations in HTTP responses.
 Author: Ben Millar (@grubbychicken)
 
 ===============================================================================
-Attack Mode:  nuke
+Attack Mode:  shotgun
 Threads: 5
 Timeout: 10
 Follow Redirects: False
 Check Certificate: False
 Proxy: http://127.0.0.1:8080
-Analyse:  Status Code
-CLength Sensitivity:  25
+Analyse:  Cookie, Status Code and Content Length
+CLength Sensitivity:  1
 ===============================================================================
 Progress: |██████████████████████████████████████████████████| 100.0% Complete |
 ===============================================================================
-Woohoo! 2 deviations found!
-Time taken: 3.0842599868774414
+Woohoo! 19 deviations found!
+Time taken: 0.9599368572235107
 ===============================================================================
 ########## Status Code Deviations ##########
-Position: 1, Payload: user1@acmecorp.net
-Position: 2, Payload: Password123
-###
-Position: 1, Payload: user2@acmecorp.net
-Position: 2, Payload: Password1234
-###
+images/
+images
+upload.php
+assets/
+assets
+.php
+/
+
+tmp/
+tmp
+########## Content Length Deviations ##########
+images/
+images
+upload.php
+assets
+.php
+/
+
+tmp
+########## Cookie Deviations ##########
+upload.php
 ===============================================================================
 ```
 
 # To-Do List
 
+* Update all modes to work with parameters not just parameter values.
 * Stop being lazy - Implement classes! Get rid of global vars!
 * Add grep deviator - i.e. grep response for keyword/phrase
 * Error checking!  Be better! 
 * Check inside referer header for payload position.  Just another urllib.parse.... 
 * Add "append extension" and "append slash" feature for file brute-forcing
 * Could do with more testing.
+* Extend to accommodate more HTTP methods
