@@ -16,9 +16,9 @@ Credential Stuffing - You have created a list of username/password pairs from pa
 Password Brute Forcing - You have enumerated a list of email addresses from LinkedIn or other open sources.  You want to attempt to log in to a public facing service such as OWA or Office365 using each email address and a list of x passwords.  Use nuke mode. DV8dotpy will let you know which logins were successful.
 
 **Web App Pentest**
-In a scenario where you have to update multiple request values with the same payload in the same request, such as a username in an email address feild and a cookie - use shotgun mode.
+In a scenario where you have to update multiple request values with the same payload in the same request, such as a username in a username feild and a cookie - use shotgun mode.
 
-In a scenario where you want to enumerate a list of valid user IDs or usernames for example, use revolver mode to place a payload in one or more positions on after the other.
+In a scenario where you want to enumerate a list of valid user IDs or usernames for example, use revolver mode to place a payload in one or more positions one after the other.
 
 # Author
 
