@@ -11,9 +11,9 @@ It is by no means perfect and is still BETA.  I still have quite a bit of testin
 
 # Example Use Cases
 **Red Team Engagements**
-Credential Stuffing - You have created a list of username/password pairs from password leaks/breaches for the company you're testing.  You can use trident mode against any of their public facing services that allow you to authenticate, such as OWA or Office365.  
+Credential Stuffing - You have created a list of username/password pairs from password leaks/breaches for the company you're testing.  You can use trident mode against any of their public facing services that allow you to authenticate, such as OWA or Office365.  Both OWA and Office365 set cookies upon a successful login, use the cookie deviator and DV8dotpy will let you know which logins were successful.  
 
-Password Brute Forcing - You have enumerated a list of email addresses from LinkedIn or other open sources.  You want to attempt to log in to a public facing service such as OWA or Office365 using each email address and a list of x passwords.  Use nuke mode.
+Password Brute Forcing - You have enumerated a list of email addresses from LinkedIn or other open sources.  You want to attempt to log in to a public facing service such as OWA or Office365 using each email address and a list of x passwords.  Use nuke mode. DV8dotpy will let you know which logins were successful.
 
 **Web App Pentest**
 In a scenario where you have to update multiple request values with the same payload in the same request, such as a username in an email address feild and a cookie - use shotgun mode.
