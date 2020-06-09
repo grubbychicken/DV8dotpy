@@ -1,4 +1,7 @@
 # DV8dotpy
+
+![](dv8dotpy_demo.gif)
+
 DV8dotpy helps you identify deviations in HTTP responses.  It has a whole plethora of applications.  It can be used to bruteforce directories, files, valid cfedentials and so on.  You specify what a deviation looks like and it will tell you if any deviations are found in the responses.  It uses multithreading so can be pretty quick.
 
 For example; you're trying to brute force credentials on a companies federated Office 365 portal.  You know that an invalid logon response doesn't set any cookies, but a successful logon does. Use the "cookie" deviator and DV8dotpy will let you know which of your payloads resulted in a successful logon.  You could also use the content length ("clength") deviator in this example because the content length of a successful logon is sufficiently different from the content length of an invalid logon.  Using "clength", DV8dotpy is clever enough to work out what the norm is and identifies any responses that deviate form it.  
